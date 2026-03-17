@@ -92,7 +92,7 @@ export default function RoomPage({ params, searchParams }: RoomPageProps) {
             <ArrowLeft className="h-4 w-4" />
             Leave
           </Button>
-          <span className="font-mono text-sm text-muted-foreground tracking-wider">{code}</span>
+          <span className="font-display text-base text-muted-foreground tracking-[-0.02em]">{code}</span>
         </div>
 
         {/* Main card */}

@@ -1,47 +1,53 @@
 import { CreateRoomButton } from '@/components/home/CreateRoomButton'
 import { JoinRoomForm } from '@/components/home/JoinRoomForm'
 import { Separator } from '@/components/ui/separator'
-import { Zap } from 'lucide-react'
 
 export default function HomePage() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-16">
-      <div className="w-full max-w-sm flex flex-col gap-8">
-        {/* Header */}
-        <div className="flex flex-col items-center gap-3 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 border border-primary/20">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">TransFile</h1>
-            <p className="text-muted-foreground text-sm mt-1">Drop it. Share it. Done.</p>
-          </div>
-          <p className="text-xs text-muted-foreground/70 max-w-[260px]">
-            Instant P2P file transfer between any devices on your network — no uploads, no accounts.
+    <main className="flex min-h-screen flex-col items-center justify-center px-6 py-16">
+      <div className="w-full max-w-lg flex flex-col gap-10">
+        {/* Hero */}
+        <div className="flex flex-col gap-4">
+          <h1
+            className="font-display text-[clamp(4rem,14vw,8rem)] font-normal leading-[0.9] tracking-[-0.04em] text-foreground"
+          >
+            Trans
+            <br />
+            File
+          </h1>
+          <p className="text-muted-foreground text-base leading-relaxed max-w-xs">
+            Drop it. Share it. Done.{' '}
+            <span className="text-muted-foreground/60">
+              Instant P2P transfer between any devices — no uploads, no accounts.
+            </span>
           </p>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-5">
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">New transfer</p>
+            <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+              New transfer
+            </p>
             <CreateRoomButton />
           </div>
 
           <div className="flex items-center gap-3">
             <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">or join existing</span>
+            <span className="text-xs text-muted-foreground/50 tabular-nums">or</span>
             <Separator className="flex-1" />
           </div>
 
           <div className="flex flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Enter room code</p>
+            <p className="text-xs font-medium text-muted-foreground/60 uppercase tracking-widest">
+              Join with room code
+            </p>
             <JoinRoomForm />
           </div>
         </div>
 
-        {/* Footer note */}
-        <p className="text-center text-xs text-muted-foreground/50">
+        {/* Footer */}
+        <p className="text-xs text-muted-foreground/40 tracking-wide">
           Files go directly between devices — never stored on any server.
         </p>
       </div>

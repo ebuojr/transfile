@@ -28,7 +28,7 @@ export function RoomCode({ code }: RoomCodeProps) {
     <div className="flex flex-col items-center gap-4">
       {/* Code display */}
       <div className="flex items-center gap-3">
-        <span className="font-mono text-4xl font-bold tracking-widest text-foreground">
+        <span className="font-display text-5xl font-normal tracking-[-0.02em] text-foreground">
           {code}
         </span>
         <Button
