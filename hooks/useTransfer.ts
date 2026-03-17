@@ -80,7 +80,13 @@ export function useTransfer({ role, sendSignal, onConnect, onDisconnect }: UseTr
     // Send chunks
     let sent = 0
     for (const chunk of chunkFile(fileBuffer)) {
-      peerRef.current?.send(chunk)
+      if (!peerRef.current) {
+        // Peer disconnected mid-transfer
+        updateTransfer(id, { status: 'error' })
+        sendingRef.current = false
+        return
+      }
+      peerRef.current.send(chunk)
       sent++
       updateTransfer(id, {
         chunksReceived: sent,
@@ -137,45 +143,64 @@ export function useTransfer({ role, sendSignal, onConnect, onDisconnect }: UseTr
       peer.on('error', () => {
         setPeerConnected(false)
         peerRef.current = null
+        onDisconnectRef.current?.()
       })
 
       peer.on('data', (rawData) => {
+        // Header detection: simple-peer may deliver strings as Buffer/Uint8Array in some environments
+        let headerText: string | null = null
         if (typeof rawData === 'string') {
-          // Header message
+          headerText = rawData
+        } else {
+          // Try to decode as UTF-8 and check if it looks like a JSON object
           try {
-            const header = JSON.parse(rawData) as {
+            const decoded = new TextDecoder().decode(rawData as Uint8Array)
+            if (decoded.startsWith('{')) headerText = decoded
+          } catch {
+            // not text
+          }
+        }
+
+        if (headerText !== null) {
+          try {
+            const header = JSON.parse(headerText) as {
               id: string
               name: string
               size: number
               totalChunks: number
               mimeType: string
             }
-            receiveStateRef.current = { ...header, chunks: [], chunksReceived: 0 }
-            setTransfers((prev) => [
-              ...prev,
-              {
-                id: header.id,
-                name: header.name,
-                size: header.size,
-                totalChunks: header.totalChunks,
-                chunksReceived: 0,
-                progress: 0,
-                direction: 'receiving',
-                status: 'transferring',
-              },
-            ])
+            if (header.id && header.name && typeof header.totalChunks === 'number') {
+              receiveStateRef.current = { ...header, chunks: [], chunksReceived: 0 }
+              setTransfers((prev) => [
+                ...prev,
+                {
+                  id: header.id,
+                  name: header.name,
+                  size: header.size,
+                  totalChunks: header.totalChunks,
+                  chunksReceived: 0,
+                  progress: 0,
+                  direction: 'receiving',
+                  status: 'transferring',
+                },
+              ])
+              return
+            }
           } catch {
-            // ignore malformed headers
+            // not a valid header, fall through to chunk handling
           }
-          return
         }
 
         // Chunk message (Uint8Array in browser)
         const current = receiveStateRef.current
         if (!current) return
 
-        const buffer =
-          rawData instanceof ArrayBuffer ? rawData : (rawData as Uint8Array).buffer as ArrayBuffer
+        // Correctly slice the backing buffer to respect byteOffset/byteLength
+        const u8 = rawData instanceof ArrayBuffer
+          ? new Uint8Array(rawData)
+          : (rawData as Uint8Array)
+        const buffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
         const { index, data } = parseChunk(buffer)
 
         current.chunks[index] = data

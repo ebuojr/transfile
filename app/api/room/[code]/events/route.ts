@@ -50,10 +50,16 @@ export async function GET(
       const signalKey = `room:${code}:signals:${role}`
       while (!closed) {
         try {
-          const messages = await redis.lrange<unknown>(signalKey, 0, -1)
+          // Pipeline LRANGE + DEL in one round trip to minimise the race
+          // window where a concurrent push could otherwise be silently lost.
+          const pipe = redis.pipeline()
+          pipe.lrange(signalKey, 0, -1)
+          pipe.del(signalKey)
+          const results = await pipe.exec() as [unknown[], number]
+          const messages = results[0] ?? []
           if (messages.length > 0) {
-            await redis.del(signalKey)
-            for (const msg of messages) {
+            // LPUSH adds to the head so reverse to deliver in original send order
+            for (const msg of [...messages].reverse()) {
               if (!closed) {
                 controller.enqueue(
                   encoder.encode(`data: ${JSON.stringify(msg)}\n\n`)
