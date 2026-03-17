@@ -200,7 +200,7 @@ export function useTransfer({ role, sendSignal, onConnect, onDisconnect }: UseTr
         const u8 = rawData instanceof ArrayBuffer
           ? new Uint8Array(rawData)
           : (rawData as Uint8Array)
-        const buffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength)
+        const buffer = u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength) as ArrayBuffer
         const { index, data } = parseChunk(buffer)
 
         current.chunks[index] = data
