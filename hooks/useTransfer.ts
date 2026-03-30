@@ -4,6 +4,18 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { chunkFile, parseChunk, totalChunks as calcTotalChunks } from '@/lib/transfer'
 import type { TransferFile } from '@/types/transfer'
 
+const HIGH_WATER_MARK = 512 * 1024 // pause sending when buffer exceeds 512 KB
+const LOW_WATER_MARK = 64 * 1024   // resume when it drains to 64 KB
+
+async function drainIfNeeded(peer: SimplePeerInstance): Promise<void> {
+  const channel = (peer as unknown as { _channel?: RTCDataChannel })._channel
+  if (!channel || channel.bufferedAmount <= HIGH_WATER_MARK) return
+  channel.bufferedAmountLowThreshold = LOW_WATER_MARK
+  await new Promise<void>(resolve =>
+    channel.addEventListener('bufferedamountlow', () => resolve(), { once: true })
+  )
+}
+
 interface UseTransferOptions {
   role: 'initiator' | 'receiver'
   sendSignal: (data: unknown) => Promise<void>
@@ -72,30 +84,38 @@ export function useTransfer({ role, sendSignal, onConnect, onDisconnect }: UseTr
       },
     ])
 
-    // Send header
-    peerRef.current.send(
-      JSON.stringify({ id, name: file.name, size: file.size, totalChunks: numChunks, mimeType: file.type })
-    )
+    try {
+      // Send header
+      peerRef.current.send(
+        JSON.stringify({ id, name: file.name, size: file.size, totalChunks: numChunks, mimeType: file.type })
+      )
 
-    // Send chunks
-    let sent = 0
-    for (const chunk of chunkFile(fileBuffer)) {
-      if (!peerRef.current) {
-        // Peer disconnected mid-transfer
-        updateTransfer(id, { status: 'error' })
-        sendingRef.current = false
-        return
+      // Send chunks with backpressure — wait for the data channel buffer to drain
+      // before each send to prevent RTCDataChannel buffer overflow errors.
+      let sent = 0
+      for (const chunk of chunkFile(fileBuffer)) {
+        if (!peerRef.current) {
+          updateTransfer(id, { status: 'error' })
+          return
+        }
+        await drainIfNeeded(peerRef.current)
+        if (!peerRef.current) {
+          updateTransfer(id, { status: 'error' })
+          return
+        }
+        peerRef.current.send(chunk)
+        sent++
+        updateTransfer(id, {
+          chunksReceived: sent,
+          progress: Math.round((sent / numChunks) * 100),
+          status: sent === numChunks ? 'complete' : 'transferring',
+        })
       }
-      peerRef.current.send(chunk)
-      sent++
-      updateTransfer(id, {
-        chunksReceived: sent,
-        progress: Math.round((sent / numChunks) * 100),
-        status: sent === numChunks ? 'complete' : 'transferring',
-      })
+    } catch {
+      updateTransfer(id, { status: 'error' })
+    } finally {
+      sendingRef.current = false
     }
-
-    sendingRef.current = false
 
     // Process next file in queue
     if (sendQueueRef.current.length > 0) {
